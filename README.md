@@ -1,6 +1,9 @@
 # Apache Shiro integration with Spring Boot
 
 ## Usage
+
+`mvn clean install`
+
 ### pom.xml
 ```
 <dependency>
