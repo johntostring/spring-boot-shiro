@@ -1,4 +1,6 @@
-# Apache Shiro integration with Spring Boot
+Apache Shiro integration with Spring Boot
+=========================================
+[![Build Status](https://travis-ci.org/johntostring/spring-boot-shiro.svg?branch=master)](https://travis-ci.org/johntostring/spring-boot-shiro)
 
 ## Usage
 
