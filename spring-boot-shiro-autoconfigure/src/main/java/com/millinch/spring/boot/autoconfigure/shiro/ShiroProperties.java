@@ -38,6 +38,8 @@ public class ShiroProperties {
      */
     private Map<String, String> filterChainDefinitions;
 
+    private final Ehcache ehcache = new Ehcache();
+
     public Class<?> getRealm() {
         return realm;
     }
@@ -100,5 +102,22 @@ public class ShiroProperties {
 
     public void setFilterChainDefinitions(Map<String, String> filterChainDefinitions) {
         this.filterChainDefinitions = filterChainDefinitions;
+    }
+
+    public Ehcache getEhcache() {
+        return ehcache;
+    }
+
+    public static class Ehcache {
+
+        private String cacheManagerConfigFile = "classpath:org/apache/shiro/cache/ehcache/ehcache.xml";
+
+        public String getCacheManagerConfigFile() {
+            return cacheManagerConfigFile;
+        }
+
+        public void setCacheManagerConfigFile(String cacheManagerConfigFile) {
+            this.cacheManagerConfigFile = cacheManagerConfigFile;
+        }
     }
 }
