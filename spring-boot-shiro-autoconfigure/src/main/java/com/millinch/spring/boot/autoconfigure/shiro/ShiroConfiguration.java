@@ -52,7 +52,7 @@ public class ShiroConfiguration {
     }
 
     @Bean(name = "securityManager")
-    @DependsOn(value = {"cacheManager", "rememberMeManager", "realm"})
+    @DependsOn(value = {"cacheManager", "rememberMeManager", "mainRealm"})
     public DefaultSecurityManager securityManager(Realm realm, RememberMeManager rememberMeManager,
                                                   CacheManager cacheManager, SessionManager sessionManager) {
         DefaultSecurityManager sm = new DefaultWebSecurityManager();

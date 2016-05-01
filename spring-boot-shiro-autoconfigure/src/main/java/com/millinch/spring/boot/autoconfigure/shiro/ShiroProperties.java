@@ -1,5 +1,6 @@
 package com.millinch.spring.boot.autoconfigure.shiro;
 
+import org.apache.shiro.realm.Realm;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.Map;
@@ -14,7 +15,8 @@ public class ShiroProperties {
     /**
      * Custom Realm
      */
-    private Class<?> realm;
+    private Class<? extends Realm> realmClass = null;
+
     /**
      * URL of login
      */
@@ -32,7 +34,13 @@ public class ShiroProperties {
 
     private int hashIterations = 1;
 
+    /**
+     * 密码重试次数上限
+     */
+    private int retryMax = 5;
+
     private boolean storedCredentialsHexEncoded = true;
+
     /**
      * Filter chain
      */
@@ -40,12 +48,12 @@ public class ShiroProperties {
 
     private final Ehcache ehcache = new Ehcache();
 
-    public Class<?> getRealm() {
-        return realm;
+    public Class<? extends Realm> getRealmClass() {
+        return realmClass;
     }
 
-    public void setRealm(Class<?> realm) {
-        this.realm = realm;
+    public void setRealmClass(Class<? extends Realm> realmClass) {
+        this.realmClass = realmClass;
     }
 
     public String getLoginUrl() {
@@ -86,6 +94,14 @@ public class ShiroProperties {
 
     public void setHashIterations(int hashIterations) {
         this.hashIterations = hashIterations;
+    }
+
+    public int getRetryMax() {
+        return retryMax;
+    }
+
+    public void setRetryMax(int retryMax) {
+        this.retryMax = retryMax;
     }
 
     public boolean isStoredCredentialsHexEncoded() {

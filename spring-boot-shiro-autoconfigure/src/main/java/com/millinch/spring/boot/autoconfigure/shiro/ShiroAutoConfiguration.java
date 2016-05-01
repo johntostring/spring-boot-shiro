@@ -10,6 +10,7 @@ import org.apache.shiro.mgt.RememberMeManager;
 import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.realm.AuthenticatingRealm;
 import org.apache.shiro.realm.Realm;
+import org.apache.shiro.realm.jdbc.JdbcRealm;
 import org.apache.shiro.session.SessionListener;
 import org.apache.shiro.session.mgt.ExecutorServiceSessionValidationScheduler;
 import org.apache.shiro.session.mgt.SessionValidationScheduler;
@@ -24,11 +25,11 @@ import org.apache.shiro.web.servlet.Cookie;
 import org.apache.shiro.web.servlet.SimpleCookie;
 import org.apache.shiro.web.session.mgt.DefaultWebSessionManager;
 import org.apache.shiro.web.session.mgt.WebSessionManager;
-import org.quartz.Scheduler;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.embedded.FilterRegistrationBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -38,6 +39,7 @@ import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Import;
 
 import javax.servlet.Filter;
+import javax.sql.DataSource;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -53,7 +55,8 @@ import java.util.Map;
 @Import(ShiroConfiguration.class)
 @EnableConfigurationProperties({
         ShiroProperties.class, ShiroSignInProperties.class,
-        ShiroCookieProperties.class, ShiroSessionProperties.class
+        ShiroCookieProperties.class, ShiroSessionProperties.class,
+        ShiroJdbcRealmProperties.class
 })
 public class ShiroAutoConfiguration {
 
@@ -69,6 +72,9 @@ public class ShiroAutoConfiguration {
     @Autowired
     private ShiroSessionProperties shiroSessionProperties;
 
+    @Autowired
+    private ShiroJdbcRealmProperties shiroJdbcRealmProperties;
+
     @Autowired(required = false)
     private CipherService cipherService;
 
@@ -78,11 +84,34 @@ public class ShiroAutoConfiguration {
     @Autowired(required = false)
     private Collection<SessionListener> listeners;
 
-    @Bean(name = "realm")
-    @ConditionalOnMissingBean
+    @Bean(name = "mainRealm")
+    @ConditionalOnMissingBean(name = "mainRealm")
+    @ConditionalOnProperty(prefix = "shiro.realm.jdbc", name = "enabled", havingValue = "true")
+    @DependsOn(value = {"dataSource", "lifecycleBeanPostProcessor", "credentialsMatcher"})
+    public Realm jdbcRealm(DataSource dataSource, CredentialsMatcher credentialsMatcher) {
+        JdbcRealm jdbcRealm = new JdbcRealm();
+        if (shiroJdbcRealmProperties.getAuthenticationQuery() != null) {
+            jdbcRealm.setAuthenticationQuery(shiroJdbcRealmProperties.getAuthenticationQuery());
+        }
+        if (shiroJdbcRealmProperties.getUserRolesQuery() != null) {
+            jdbcRealm.setUserRolesQuery(shiroJdbcRealmProperties.getUserRolesQuery());
+        }
+        if (shiroJdbcRealmProperties.getPermissionsQuery() != null) {
+            jdbcRealm.setPermissionsQuery(shiroJdbcRealmProperties.getPermissionsQuery());
+        }
+        if (shiroJdbcRealmProperties.getSalt() != null) {
+            jdbcRealm.setSaltStyle(shiroJdbcRealmProperties.getSalt());
+        }
+        jdbcRealm.setDataSource(dataSource);
+        jdbcRealm.setCredentialsMatcher(credentialsMatcher);
+        return jdbcRealm;
+    }
+
+    @Bean(name = "mainRealm")
+    @ConditionalOnMissingBean(name = "mainRealm")
     @DependsOn(value = {"lifecycleBeanPostProcessor", "credentialsMatcher"})
     public Realm realm(CredentialsMatcher credentialsMatcher) {
-        Class<?> realmClass = properties.getRealm();
+        Class<?> realmClass = properties.getRealmClass();
         Realm realm = (Realm) BeanUtils.instantiate(realmClass);
         if (realm instanceof AuthenticatingRealm) {
             ((AuthenticatingRealm) realm).setCredentialsMatcher(credentialsMatcher);
@@ -104,15 +133,15 @@ public class ShiroAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(Cookie.class)
-    public Cookie simpleCookie() {
-        SimpleCookie simpleCookie = new SimpleCookie();
-        simpleCookie.setName(signInProperties.getRememberMeParam());
-        simpleCookie.setMaxAge(shiroCookieProperties.getMaxAge());
-        simpleCookie.setValue(shiroCookieProperties.getValue());
-        simpleCookie.setVersion(shiroCookieProperties.getVersion());
-        simpleCookie.setHttpOnly(shiroCookieProperties.isHttpOnly());
-        simpleCookie.setSecure(shiroCookieProperties.isSecure());
-        return simpleCookie;
+    public Cookie rememberMeCookie() {
+        SimpleCookie rememberMeCookie = new SimpleCookie();
+        rememberMeCookie.setName(signInProperties.getRememberMeParam());
+        rememberMeCookie.setMaxAge(shiroCookieProperties.getMaxAge());
+        rememberMeCookie.setValue(shiroCookieProperties.getValue());
+        rememberMeCookie.setVersion(shiroCookieProperties.getVersion());
+        rememberMeCookie.setHttpOnly(shiroCookieProperties.isHttpOnly());
+        rememberMeCookie.setSecure(shiroCookieProperties.isSecure());
+        return rememberMeCookie;
     }
 
     @Bean
@@ -150,31 +179,37 @@ public class ShiroAutoConfiguration {
     }
 
     @Bean(name = "sessionValidationScheduler")
+    @DependsOn(value = {"sessionManager"})
     @ConditionalOnClass(name = {"org.quartz.Scheduler"})
     @ConditionalOnMissingBean(SessionValidationScheduler.class)
-    public SessionValidationScheduler quartzSessionValidationScheduler() {
-        QuartzSessionValidationScheduler quartzSessionValidationScheduler = new QuartzSessionValidationScheduler();
+    public SessionValidationScheduler quartzSessionValidationScheduler(DefaultWebSessionManager sessionManager) {
+        QuartzSessionValidationScheduler quartzSessionValidationScheduler = new QuartzSessionValidationScheduler(sessionManager);
+        sessionManager.setDeleteInvalidSessions(shiroSessionProperties.isDeleteInvalidSessions());
+        sessionManager.setSessionValidationInterval(shiroSessionProperties.getValidationInterval());
+        sessionManager.setSessionValidationSchedulerEnabled(shiroSessionProperties.isValidationSchedulerEnabled());
+        sessionManager.setSessionValidationScheduler(quartzSessionValidationScheduler);
         return quartzSessionValidationScheduler;
     }
 
     @Bean(name = "sessionValidationScheduler")
+    @DependsOn(value = {"sessionManager"})
     @ConditionalOnMissingBean(SessionValidationScheduler.class)
-    public SessionValidationScheduler sessionValidationScheduler() {
-        ExecutorServiceSessionValidationScheduler validationScheduler = new ExecutorServiceSessionValidationScheduler();
+    public SessionValidationScheduler sessionValidationScheduler(DefaultWebSessionManager sessionManager) {
+        ExecutorServiceSessionValidationScheduler validationScheduler = new ExecutorServiceSessionValidationScheduler(sessionManager);
+        sessionManager.setDeleteInvalidSessions(shiroSessionProperties.isDeleteInvalidSessions());
+        sessionManager.setSessionValidationInterval(shiroSessionProperties.getValidationInterval());
+        sessionManager.setSessionValidationSchedulerEnabled(shiroSessionProperties.isValidationSchedulerEnabled());
+        sessionManager.setSessionValidationScheduler(validationScheduler);
         return validationScheduler;
     }
 
     @Bean
-    @DependsOn(value = {"cacheManager", "sessionDAO", "sessionValidationScheduler"})
-    public WebSessionManager sessionManager(CacheManager cacheManager, SessionDAO sessionDAO,
-                                            SessionValidationScheduler sessionValidationScheduler) {
+    @DependsOn(value = {"cacheManager", "sessionDAO"})
+    public WebSessionManager sessionManager(CacheManager cacheManager, SessionDAO sessionDAO) {
         DefaultWebSessionManager sessionManager = new DefaultWebSessionManager();
         sessionManager.setCacheManager(cacheManager);
         sessionManager.setGlobalSessionTimeout(shiroSessionProperties.getGlobalSessionTimeout());
-        sessionManager.setDeleteInvalidSessions(shiroSessionProperties.isDeleteInvalidSessions());
-        sessionManager.setSessionValidationInterval(shiroSessionProperties.getValidationInterval());
-        sessionManager.setSessionValidationScheduler(sessionValidationScheduler);
-        sessionManager.setSessionValidationSchedulerEnabled(shiroSessionProperties.isValidationSchedulerEnabled());
+
         sessionManager.setSessionDAO(sessionDAO);
         sessionManager.setSessionListeners(listeners);
         return sessionManager;
@@ -188,6 +223,7 @@ public class ShiroAutoConfiguration {
         credentialsMatcher.setHashAlgorithmName(properties.getHashAlgorithmName());
         credentialsMatcher.setHashIterations(properties.getHashIterations());
         credentialsMatcher.setStoredCredentialsHexEncoded(properties.isStoredCredentialsHexEncoded());
+        credentialsMatcher.setRetryMax(properties.getRetryMax());
         return credentialsMatcher;
     }
 
