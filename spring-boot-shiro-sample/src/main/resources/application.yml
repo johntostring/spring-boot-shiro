@@ -1,0 +1,45 @@
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/test
+    username: root
+    password: root
+    driver-class-name: com.mysql.jdbc.Driver
+    platform: mysql
+
+shiro:
+  realm:
+    jdbc:
+      enabled: true
+      authentication-query: SELECT password FROM sys_user where user_name = ? #根据用户名获取密码
+      salt: no_salt #可选值：no_salt, crypt(源码中未实现), column(上面这个SQL中第二列中获取salt), external(需继承JdbcRealm重写getSaltForUser()方法)
+      user-roles-query: SELECT r.code
+                        FROM sys_user_role ur
+                        LEFT JOIN sys_role r ON r.id = ur.role_id
+                        LEFT JOIN sys_user u ON ur.user_id = u.id
+                        WHERE u.user_name = ? #根据用户名获取角色
+      permissions-query: SELECT re.permission
+                         FROM sys_role_resource rr
+                         LEFT JOIn sys_resource re ON rr.resource_id = re.id
+                         LEFT JOIN sys_role r ON rr.role_id = r.id
+                         WHERE r.code = ? #根据角色获取权限
+      permissions-lookup-enabled: true
+  login-url: /login.html #登录入口URL
+  success-url: /index.html #登录成功跳转URL
+  unauthorized-url: /unauthorized.html #当访问未授权页面时跳转至该URL，将为filter chain中的每个AuthorizationFilter设置跳转URL（如果目标没有指定）
+  sign-in:
+    user-param: username #用户名参数名称
+    password-param: password #密码参数名称
+    remember-me-param: rememberMe #记住我参数名称
+  hash-iterations: 1 #加密迭代次数，强制设为至少1次（即使设置0或负数）
+  hash-algorithm-name: MD5 #加密算法名称，如：MD2/SHA-1/SHA-256/SHA-384/SHA-512
+  filter-chain-definitions: #默认为空，一般如下配置
+    /logout: logout
+    /favicon.ico: anon
+    /assets/**: anon
+    /**: authc
+  filter-chain-sql: SELECT r.url, r.permission
+                    FROM sys_resource r
+                    WHERE r.permission != '' AND r.url != ''
+logging:
+  level: debug
