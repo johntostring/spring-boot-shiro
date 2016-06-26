@@ -30,6 +30,8 @@ public class ShiroJdbcRealmProperties {
      */
     private String permissionsQuery;
 
+    private boolean permissionsLookupEnabled = true;
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -70,5 +72,11 @@ public class ShiroJdbcRealmProperties {
         this.salt = salt;
     }
 
+    public boolean isPermissionsLookupEnabled() {
+        return permissionsLookupEnabled;
+    }
 
+    public void setPermissionsLookupEnabled(boolean permissionsLookupEnabled) {
+        this.permissionsLookupEnabled = permissionsLookupEnabled;
+    }
 }

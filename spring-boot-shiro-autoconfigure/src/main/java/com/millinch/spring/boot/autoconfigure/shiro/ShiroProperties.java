@@ -46,6 +46,8 @@ public class ShiroProperties {
      */
     private Map<String, String> filterChainDefinitions;
 
+    private String filterChainSql;
+
     private final Ehcache ehcache = new Ehcache();
 
     public Class<? extends Realm> getRealmClass() {
@@ -118,6 +120,14 @@ public class ShiroProperties {
 
     public void setFilterChainDefinitions(Map<String, String> filterChainDefinitions) {
         this.filterChainDefinitions = filterChainDefinitions;
+    }
+
+    public String getFilterChainSql() {
+        return filterChainSql;
+    }
+
+    public void setFilterChainSql(String filterChainSql) {
+        this.filterChainSql = filterChainSql;
     }
 
     public Ehcache getEhcache() {

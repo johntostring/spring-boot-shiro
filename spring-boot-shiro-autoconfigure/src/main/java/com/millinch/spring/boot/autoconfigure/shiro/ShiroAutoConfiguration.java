@@ -84,6 +84,9 @@ public class ShiroAutoConfiguration {
     @Autowired(required = false)
     private Collection<SessionListener> listeners;
 
+    @Autowired(required = false)
+    private JdbcPermissionDefinitionsLoader jdbcPermissionDefinitionsLoader;
+
     @Bean(name = "mainRealm")
     @ConditionalOnMissingBean(name = "mainRealm")
     @ConditionalOnProperty(prefix = "shiro.realm.jdbc", name = "enabled", havingValue = "true")
@@ -102,6 +105,7 @@ public class ShiroAutoConfiguration {
         if (shiroJdbcRealmProperties.getSalt() != null) {
             jdbcRealm.setSaltStyle(shiroJdbcRealmProperties.getSalt());
         }
+        jdbcRealm.setPermissionsLookupEnabled(shiroJdbcRealmProperties.isPermissionsLookupEnabled());
         jdbcRealm.setDataSource(dataSource);
         jdbcRealm.setCredentialsMatcher(credentialsMatcher);
         return jdbcRealm;
@@ -237,7 +241,7 @@ public class ShiroAutoConfiguration {
         return filter;
     }
 
-    public ShiroFilterFactoryBean getShiroFilterFactoryBean(SecurityManager securityManager) {
+    public ShiroFilterFactoryBean getShiroFilterFactoryBean(SecurityManager securityManager) throws Exception {
         ShiroFilterFactoryBean shiroFilter = new ShiroFilterFactoryBean();
         shiroFilter.setSecurityManager(securityManager);
         shiroFilter.setLoginUrl(properties.getLoginUrl());
@@ -248,7 +252,16 @@ public class ShiroAutoConfiguration {
         filterMap.put("authc", formSignInFilter());
 
         shiroFilter.setFilters(filterMap);
-        shiroFilter.setFilterChainDefinitionMap(properties.getFilterChainDefinitions());
+
+        Map<String, String> filterChains = new LinkedHashMap<>();
+        if (jdbcPermissionDefinitionsLoader != null) {
+            Map<String, String> permissinUrlMap = jdbcPermissionDefinitionsLoader.getObject();
+            filterChains.putAll(permissinUrlMap);
+        }
+        if (properties.getFilterChainDefinitions() != null) {
+            filterChains.putAll(properties.getFilterChainDefinitions());
+        }
+        shiroFilter.setFilterChainDefinitionMap(filterChains);
         return shiroFilter;
     }
 
@@ -263,6 +276,15 @@ public class ShiroAutoConfiguration {
         filterRegistration.setEnabled(true);
         filterRegistration.addUrlPatterns("/*");
         return filterRegistration;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "shiro", name = "filterChainSql")
+    public JdbcPermissionDefinitionsLoader jdbcFilterChainsLoader(DataSource dataSource) {
+        JdbcPermissionDefinitionsLoader jdbcPermissionDefinitionsLoader = new JdbcPermissionDefinitionsLoader(dataSource);
+        jdbcPermissionDefinitionsLoader.setSql(properties.getFilterChainSql());
+        return jdbcPermissionDefinitionsLoader;
     }
 
 }
