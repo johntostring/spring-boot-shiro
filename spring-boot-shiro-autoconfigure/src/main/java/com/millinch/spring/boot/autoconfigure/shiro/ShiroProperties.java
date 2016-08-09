@@ -3,6 +3,7 @@ package com.millinch.spring.boot.autoconfigure.shiro;
 import org.apache.shiro.realm.Realm;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import javax.servlet.Filter;
 import java.util.Map;
 
 /**
@@ -40,6 +41,11 @@ public class ShiroProperties {
     private int retryMax = 5;
 
     private boolean storedCredentialsHexEncoded = true;
+
+    /**
+     * Shiro managed filters
+     */
+    private Map<String, Class<? extends Filter>> filters;
 
     /**
      * Filter chain
@@ -112,6 +118,14 @@ public class ShiroProperties {
 
     public void setStoredCredentialsHexEncoded(boolean storedCredentialsHexEncoded) {
         this.storedCredentialsHexEncoded = storedCredentialsHexEncoded;
+    }
+
+    public Map<String, Class<? extends Filter>> getFilters() {
+        return filters;
+    }
+
+    public void setFilters(Map<String, Class<? extends Filter>> filters) {
+        this.filters = filters;
     }
 
     public Map<String, String> getFilterChainDefinitions() {

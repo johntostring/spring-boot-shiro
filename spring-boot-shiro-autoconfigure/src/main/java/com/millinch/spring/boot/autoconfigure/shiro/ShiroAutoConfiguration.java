@@ -87,6 +87,9 @@ public class ShiroAutoConfiguration {
     @Autowired(required = false)
     private JdbcPermissionDefinitionsLoader jdbcPermissionDefinitionsLoader;
 
+    @Autowired(required = false)
+    private ShiroFilterCustomizer shiroFilterCustomizer;
+
     @Bean(name = "mainRealm")
     @ConditionalOnMissingBean(name = "mainRealm")
     @ConditionalOnProperty(prefix = "shiro.realm.jdbc", name = "enabled", havingValue = "true")
@@ -251,18 +254,40 @@ public class ShiroAutoConfiguration {
         Map<String, Filter> filterMap = new LinkedHashMap<String, Filter>();
         filterMap.put("authc", formSignInFilter());
 
+        Map<String, Filter> filterClasses = instantiateFilterClasses(properties.getFilters());
+        if (filterClasses != null) {
+            filterMap.putAll(filterClasses);
+        }
+
+        if (shiroFilterCustomizer != null) {
+            filterMap = shiroFilterCustomizer.customize(filterMap);
+        }
+
         shiroFilter.setFilters(filterMap);
 
         Map<String, String> filterChains = new LinkedHashMap<>();
         if (jdbcPermissionDefinitionsLoader != null) {
-            Map<String, String> permissinUrlMap = jdbcPermissionDefinitionsLoader.getObject();
-            filterChains.putAll(permissinUrlMap);
+            Map<String, String> permissionUrlMap = jdbcPermissionDefinitionsLoader.getObject();
+            filterChains.putAll(permissionUrlMap);
         }
         if (properties.getFilterChainDefinitions() != null) {
             filterChains.putAll(properties.getFilterChainDefinitions());
         }
         shiroFilter.setFilterChainDefinitionMap(filterChains);
         return shiroFilter;
+    }
+
+    private Map<String, Filter> instantiateFilterClasses(Map<String, Class<? extends Filter>> filters) {
+        Map<String, Filter> filterMap = null;
+        if (filters != null) {
+            filterMap = new LinkedHashMap<String, Filter>();
+            for (String name : filters.keySet()) {
+                Class<? extends Filter> clazz = filters.get(name);
+                Filter f = BeanUtils.instantiate(clazz);
+                filterMap.put(name, f);
+            }
+        }
+        return filterMap;
     }
 
     @Bean(name = "shiroFilter")
