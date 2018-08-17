@@ -6,11 +6,15 @@ Apache Shiro integration with Spring Boot
 
 ## Usage
 
+首先安装到本地仓库。
+
+分支`v2.0`下为`2.0.0`版本，主要将Spring Boot升级到2.0.4.RELEASE，Shiro 升级到 1.4.0
+
 `mvn clean install`
 
 ### pom.xml
 
-```
+```xml
 <dependency>
     <groupId>com.millinch</groupId>
     <artifactId>spring-boot-shiro-starter</artifactId>
@@ -24,15 +28,15 @@ Apache Shiro integration with Spring Boot
 关于SpringBoot详细使用方式，你可以查看[官方文档](http://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#common-application-properties)，或者通过[Github开源地址](https://github.com/spring-projects/spring-boot/tree/master/spring-boot-samples)查看一些示例项目。
 
 首先，默认提供JdbcRealm 配置，不能满足需求的情况下再配置自定义Realm：
-```
+```yaml
 shiro:
   realm-class:  #默认空，指定类全名com.your.company.YourRealm
 ```
 
 **1. 配置DataSource**
 
-以MySQL为例，添加好JDBC驱动依赖后，配置DataSource：
-```
+以MySQL为例，添加好JDBC驱动依赖后，这是 Spring Boot 默认提供的方式配置DataSource：
+```yaml
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/yourdbname
@@ -46,7 +50,7 @@ spring:
 首先设shiro.realm.jdbc.enabled为true，否则就会查找自定义的realm-class，最后配置好SQL查询语句。
 
 默认配置及描述：
-```
+```yaml
 shiro:
   realm:
     jdbc:
@@ -71,6 +75,8 @@ shiro:
     remember-me-param: rememberMe #记住我参数名称
   hash-iterations: 1 #加密迭代次数，强制设为至少1次（即使设置0或负数）
   hash-algorithm-name: MD5 #加密算法名称，如：MD2/SHA-1/SHA-256/SHA-384/SHA-512
+  filters:
+    demo: your.packagepath.to.DemoFilter
   filter-chain-definitions: #默认为空，一般如下配置
     /login: authc
     /logout: logout
@@ -80,8 +86,18 @@ shiro:
     /**: authc
 ```
 
-#### Cookie
+**注意：在升级到Spring Boot 2+时我才发现`filter-chain-definitions`的配置中，key如果包含特殊字符会被强行去除掉，需要如下写法才可以：**
+
+```yaml
+filter-chain-definitions:
+  '[/sayHi]': authc, demo
 ```
+
+参考：https://stackoverflow.com/questions/34070987/escaping-a-dot-in-a-map-key-in-yaml-in-spring-boot/42285949
+
+#### Cookie
+
+```properties
 shiro.cookie.cipher-key= #对称加密时使用(默认)，为空则Shrio自动提供一个
 shiro.cookie.decryption-cipher-key= #非对称加密时必需
 shiro.cookie.encryption-cipher-key= #非对称加密时必需
@@ -93,7 +109,7 @@ shiro.cookie.version=-1
 ```
 
 #### Session
-```
+```properties
 shiro.session.active-sessions-cache-name=shiro-acciveSessionCache
 shiro.session.delete-invalid-sessions=true
 shiro.session.global-session-timeout=36000 #Session超时时长，默认1小时
@@ -106,7 +122,7 @@ shiro.session.validation-scheduler-enabled=true #是否开启定时验证Session
 
 默认配置ExecutorServiceSessionValidationScheduler，这是一个JDK的并发包API的实现。
 若在classpath发现Quartz，则自动使用QuartzSessionValidationScheduler。即添加dependency：
-```
+```xml
 <dependency>
     <groupId>org.apache.shiro</groupId>
     <artifactId>shiro-quartz</artifactId>
@@ -115,7 +131,7 @@ shiro.session.validation-scheduler-enabled=true #是否开启定时验证Session
 ```
 
 最后，你也可以配置一个自定义的`SessionValidationScheduler`实现：
-```
+```java
 @Bean(name = "sessionValidationScheduler")
 public SessionValidationScheduler yourSessionValidationScheduler() {
     return new YourSessionValidationScheduler();
@@ -123,7 +139,7 @@ public SessionValidationScheduler yourSessionValidationScheduler() {
 ```
 
 #### Cache
-```
+```properties
 shiro.ehcache.cache-manager-config-file=classpath:org/apache/shiro/cache/ehcache/ehcache.xml #开启Ehcache时可指定
 ```
 
@@ -131,7 +147,7 @@ shiro.ehcache.cache-manager-config-file=classpath:org/apache/shiro/cache/ehcache
 
 默认配置`MemoryConstrainedCacheManager`，不建议用于生产。
 若在classpath发现`org.apache.shiro.cache.ehcache.EhCacheManager`，则自动使用EhCacheManager。即添加dependency：
-```
+```xml
 <dependency>
     <groupId>org.apache.shiro</groupId>
     <artifactId>shiro-ehcache</artifactId>
