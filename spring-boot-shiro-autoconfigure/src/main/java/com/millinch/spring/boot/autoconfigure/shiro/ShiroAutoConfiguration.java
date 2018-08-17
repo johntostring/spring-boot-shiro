@@ -117,6 +117,7 @@ public class ShiroAutoConfiguration {
     @Bean(name = "mainRealm")
     @ConditionalOnMissingBean(name = "mainRealm")
     @DependsOn(value = {"lifecycleBeanPostProcessor", "credentialsMatcher"})
+    @ConditionalOnProperty(prefix = "shiro.realm.jdbc", name = "enabled", matchIfMissing = true)
     public Realm realm(CredentialsMatcher credentialsMatcher) {
         Class<?> realmClass = properties.getRealmClass();
         Realm realm = (Realm) BeanUtils.instantiate(realmClass);
